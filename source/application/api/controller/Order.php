@@ -38,7 +38,7 @@ class Order extends Controller
      * @throws \think\exception\DbException
      * @throws \Exception
      */
-    public function buyNow($goods_id, $goods_num, $goods_sku_id)
+    public function buyNow($goods_id, $goods_num, $goods_sku_id,$self)
     {
         // 商品结算信息
         $model = new OrderModel;
@@ -51,12 +51,20 @@ class Order extends Controller
         }
         // 创建订单
         if ($model->add($this->user['user_id'], $order)) {
+          if ($self == 'true') {
+            return $this->renderSuccess([
+                'payment' => $this->wxPay($model['order_no'], $this->user['open_id']
+                    , $order['order_total_price']),
+                'order_id' => $model['order_id']
+            ]);
+          }else {
             // 发起微信支付
             return $this->renderSuccess([
                 'payment' => $this->wxPay($model['order_no'], $this->user['open_id']
                     , $order['order_pay_price']),
                 'order_id' => $model['order_id']
             ]);
+          }
         }
         $error = $model->getError() ?: '订单创建失败';
         return $this->renderError($error);
@@ -72,7 +80,7 @@ class Order extends Controller
      * @throws \think\exception\DbException
      * @throws \Exception
      */
-    public function cart()
+    public function cart($self)
     {
         // 商品结算信息
         $model = new OrderModel;
@@ -82,6 +90,17 @@ class Order extends Controller
         }
         // 创建订单
         if ($model->add($this->user['user_id'], $order)) {
+          if ($self == 'true') {
+            // 清空购物车
+            $Card = new CartModel($this->user['user_id']);
+            $Card->clearAll();
+            // 发起微信支付
+            return $this->renderSuccess([
+                'payment' => $this->wxPay($model['order_no'], $this->user['open_id']
+                    , $order['order_total_price']),
+                'order_id' => $model['order_id']
+            ]);
+          }else {
             // 清空购物车
             $Card = new CartModel($this->user['user_id']);
             $Card->clearAll();
@@ -91,6 +110,7 @@ class Order extends Controller
                     , $order['order_pay_price']),
                 'order_id' => $model['order_id']
             ]);
+          }
         }
         $error = $model->getError() ?: '订单创建失败';
         return $this->renderError($error);
